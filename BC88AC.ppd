@@ -1,0 +1,329 @@
+*PPD-Adobe: "4.3"
+
+*% ============================================================
+*% BlackCopper BC-88AC
+*% 80mm ESC/POS Thermal Receipt Printer
+*%
+*% Custom CUPS driver for PDF printing.
+*%
+*% Physical roll width:       80 mm
+*% Practical printable width: ~72 mm
+*% Resolution:                203 DPI
+*% Raster width:              576 dots
+*%
+*% PDF jobs are passed to the custom bc88ac CUPS filter.
+*% The filter renders PDF -> 1-bit raster -> ESC/POS.
+*%
+*% Cutter:
+*% GS V 1 (partial cut)
+*% ============================================================
+
+*FormatVersion: "4.3"
+*FileVersion: "2.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "BC88AC.PPD"
+
+*Manufacturer: "BlackCopper"
+*Product: "(BC-88AC)"
+*ModelName: "BlackCopper BC-88AC"
+*NickName: "BlackCopper BC-88AC 80mm Thermal"
+*ShortNickName: "BC-88AC"
+
+*PSVersion: "(3010.000) 0"
+*LanguageLevel: "3"
+
+*ColorDevice: False
+*DefaultColorSpace: Gray
+*FileSystem: False
+*Throughput: "200"
+
+*% ============================================================
+*% MEDIA
+*% ============================================================
+
+*OpenUI *PageSize: PickOne
+*OrderDependency: 10 AnySetup *PageSize
+*DefaultPageSize: 80x200mm
+
+*PageSize 80x100mm/80 x 100 mm Receipt: "
+  <</PageSize[226.77 283.46]
+    /ImagingBBox null>> setpagedevice"
+
+*PageSize 80x150mm/80 x 150 mm Receipt: "
+  <</PageSize[226.77 425.20]
+    /ImagingBBox null>> setpagedevice"
+
+*PageSize 80x200mm/80 x 200 mm Receipt: "
+  <</PageSize[226.77 566.93]
+    /ImagingBBox null>> setpagedevice"
+
+*PageSize 80x250mm/80 x 250 mm Receipt: "
+  <</PageSize[226.77 708.66]
+    /ImagingBBox null>> setpagedevice"
+
+*PageSize 80x300mm/80 x 300 mm Receipt: "
+  <</PageSize[226.77 850.39]
+    /ImagingBBox null>> setpagedevice"
+
+*PageSize 80x400mm/80 x 400 mm Receipt: "
+  <</PageSize[226.77 1133.86]
+    /ImagingBBox null>> setpagedevice"
+
+*PageSize 80x500mm/80 x 500 mm Receipt: "
+  <</PageSize[226.77 1417.32]
+    /ImagingBBox null>> setpagedevice"
+
+*PageSize 80x600mm/80 x 600 mm Receipt: "
+  <</PageSize[226.77 1700.79]
+    /ImagingBBox null>> setpagedevice"
+
+*CloseUI: *PageSize
+
+
+*% ============================================================
+*% PAGE REGION
+*% ============================================================
+
+*OpenUI *PageRegion: PickOne
+*OrderDependency: 10 AnySetup *PageRegion
+*DefaultPageRegion: 80x200mm
+
+*PageRegion 80x100mm/80 x 100 mm Receipt: "
+  <</PageSize[226.77 283.46]
+    /ImagingBBox null>> setpagedevice"
+
+*PageRegion 80x150mm/80 x 150 mm Receipt: "
+  <</PageSize[226.77 425.20]
+    /ImagingBBox null>> setpagedevice"
+
+*PageRegion 80x200mm/80 x 200 mm Receipt: "
+  <</PageSize[226.77 566.93]
+    /ImagingBBox null>> setpagedevice"
+
+*PageRegion 80x250mm/80 x 250 mm Receipt: "
+  <</PageSize[226.77 708.66]
+    /ImagingBBox null>> setpagedevice"
+
+*PageRegion 80x300mm/80 x 300 mm Receipt: "
+  <</PageSize[226.77 850.39]
+    /ImagingBBox null>> setpagedevice"
+
+*PageRegion 80x400mm/80 x 400 mm Receipt: "
+  <</PageSize[226.77 1133.86]
+    /ImagingBBox null>> setpagedevice"
+
+*PageRegion 80x500mm/80 x 500 mm Receipt: "
+  <</PageSize[226.77 1417.32]
+    /ImagingBBox null>> setpagedevice"
+
+*PageRegion 80x600mm/80 x 600 mm Receipt: "
+  <</PageSize[226.77 1700.79]
+    /ImagingBBox null>> setpagedevice"
+
+*CloseUI: *PageRegion
+
+
+*% ============================================================
+*% IMAGEABLE AREA
+*%
+*% 80mm physical paper.
+*% 4mm practical margin on each side.
+*% ~72mm printable width.
+*% ============================================================
+
+*DefaultImageableArea: 80x200mm
+
+*ImageableArea 80x100mm: "11.34 0 215.43 283.46"
+*ImageableArea 80x150mm: "11.34 0 215.43 425.20"
+*ImageableArea 80x200mm: "11.34 0 215.43 566.93"
+*ImageableArea 80x250mm: "11.34 0 215.43 708.66"
+*ImageableArea 80x300mm: "11.34 0 215.43 850.39"
+*ImageableArea 80x400mm: "11.34 0 215.43 1133.86"
+*ImageableArea 80x500mm: "11.34 0 215.43 1417.32"
+*ImageableArea 80x600mm: "11.34 0 215.43 1700.79"
+
+
+*% ============================================================
+*% PAPER DIMENSIONS
+*% ============================================================
+
+*DefaultPaperDimension: 80x200mm
+
+*PaperDimension 80x100mm: "226.77 283.46"
+*PaperDimension 80x150mm: "226.77 425.20"
+*PaperDimension 80x200mm: "226.77 566.93"
+*PaperDimension 80x250mm: "226.77 708.66"
+*PaperDimension 80x300mm: "226.77 850.39"
+*PaperDimension 80x400mm: "226.77 1133.86"
+*PaperDimension 80x500mm: "226.77 1417.32"
+*PaperDimension 80x600mm: "226.77 1700.79"
+
+
+*% ============================================================
+*% INPUT
+*% ============================================================
+
+*OpenUI *InputSlot: PickOne
+*OrderDependency: 20 AnySetup *InputSlot
+*DefaultInputSlot: Roll
+
+*InputSlot Roll/80mm Thermal Roll: ""
+
+*CloseUI: *InputSlot
+
+
+*% ============================================================
+*% MEDIA TYPE
+*% ============================================================
+
+*OpenUI *MediaType: PickOne
+*OrderDependency: 30 AnySetup *MediaType
+*DefaultMediaType: Thermal
+
+*MediaType Thermal/Direct Thermal Paper: ""
+
+*CloseUI: *MediaType
+
+
+*% ============================================================
+*% RESOLUTION
+*% ============================================================
+
+*OpenUI *Resolution: PickOne
+*OrderDependency: 40 AnySetup *Resolution
+*DefaultResolution: 203dpi
+
+*Resolution 203dpi/203 DPI: ""
+
+*CloseUI: *Resolution
+
+
+*% ============================================================
+*% COLOR
+*% ============================================================
+
+*OpenUI *ColorModel: PickOne
+*OrderDependency: 50 AnySetup *ColorModel
+*DefaultColorModel: Gray
+
+*ColorModel Gray/Grayscale: "
+  <</ProcessColorModel /DeviceGray>> setpagedevice"
+
+*CloseUI: *ColorModel
+
+
+*% ============================================================
+*% DUPLEX
+*% ============================================================
+
+*OpenUI *Duplex: PickOne
+*OrderDependency: 60 AnySetup *Duplex
+*DefaultDuplex: None
+
+*Duplex None/Off: "
+  <</Duplex false>> setpagedevice"
+
+*CloseUI: *Duplex
+
+
+*% ============================================================
+*% CUTTER
+*% ============================================================
+
+*OpenUI *CutMedia: Boolean
+*OrderDependency: 70 AnySetup *CutMedia
+*DefaultCutMedia: True
+
+*CutMedia True/Cut after printing: ""
+*CutMedia False/Do not cut: ""
+
+*CloseUI: *CutMedia
+
+
+*% ============================================================
+*% CUSTOM PAGE SIZE
+*%
+*% Allows CUPS to accept arbitrary roll lengths.
+*%
+*% Width:
+*%   72mm printable area / 80mm physical roll
+*% Height:
+*%   20mm to 600mm
+*%
+*% The filter itself fits the PDF to 576 dots wide and
+*% preserves the PDF aspect ratio.
+*% ============================================================
+
+*VariablePaperSize: True
+
+*ParamCustomPageSize Width: 1 points 226.77 226.77
+*ParamCustomPageSize Height: 2 points 56.69 1700.79
+*ParamCustomPageSize WidthOffset: 3 points 0 0
+*ParamCustomPageSize HeightOffset: 4 points 0 0
+*ParamCustomPageSize Orientation: 5 int 0 0
+
+*CustomPageSize True: "
+  pop pop pop
+  << /PageSize [ 5 -2 roll ]
+     /ImagingBBox null
+  >> setpagedevice"
+
+
+*% ============================================================
+*% BORDERLESS
+*% ============================================================
+
+*OpenUI *Borderless: PickOne
+*OrderDependency: 80 AnySetup *Borderless
+*DefaultBorderless: True
+
+*Borderless True/Borderless: ""
+
+*CloseUI: *Borderless
+
+
+*% ============================================================
+*% CUTTER CAPABILITY
+*% ============================================================
+
+*% This is a physical cutter.
+*% The actual cut command is emitted by the bc88ac filter.
+
+*cupsFinishingTemplate cut/Automatic Cut: ""
+
+
+*% ============================================================
+*% CUPS FILTER
+*%
+*% CUPS 1.5+:
+*%
+*% PDF -> BC88AC native ESC/POS
+*%
+*% The custom filter performs:
+*%
+*% PDF
+*%   -> Poppler raster
+*%   -> 576 pixel width
+*%   -> 1-bit PBM
+*%   -> ESC/POS raster
+*%   -> feed
+*%   -> partial cut
+*% ============================================================
+
+
+*cupsFilter2: "application/pdf application/octet-stream 100 bc88ac"
+*% Legacy CUPS filter declaration.
+
+
+*% ============================================================
+*% GENERAL
+*% ============================================================
+
+*DefaultPageSize: 80x200mm
+*DefaultPageRegion: 80x200mm
+*DefaultInputSlot: Roll
+*DefaultResolution: 203dpi
+*DefaultColorModel: Gray
+*DefaultMediaType: Thermal
+*DefaultCutMedia: True

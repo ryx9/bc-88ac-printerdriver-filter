@@ -1,0 +1,453 @@
+#!/usr/bin/env python3
+
+import os
+import re
+import sys
+import subprocess
+import tempfile
+import shutil
+
+
+# ============================================================
+# BlackCopper BC-88AC
+# CUPS PDF -> ESC/POS raster filter
+#
+# Physical roll:        80 mm
+# Printable width:      ~72 mm
+# Resolution:           203 DPI
+# Raster width:         576 dots
+#
+# Input:
+#   application/pdf
+#
+# Output:
+#   ESC/POS
+#
+# Cutter:
+#   GS V 1  (partial cut)
+# ============================================================
+
+
+PRINTER_WIDTH_DOTS = 576
+DPI = 203
+
+# ESC/POS raster command:
+# GS v 0
+GS = b"\x1d"
+ESC = b"\x1b"
+
+
+def log(message):
+    """Write diagnostic information to the CUPS error log."""
+    print(f"BC88AC: {message}", file=sys.stderr)
+
+
+def get_input_file():
+    """
+    CUPS filter arguments:
+
+        argv[1] = job-id
+        argv[2] = user
+        argv[3] = job-title
+        argv[4] = copies
+        argv[5] = options
+        argv[6] = filename
+
+    If argv[6] is '-' the job is supplied on stdin.
+    """
+
+    if len(sys.argv) < 7:
+        raise RuntimeError("Invalid CUPS filter arguments")
+
+    filename = sys.argv[6]
+
+    if filename != "-":
+        return filename, False
+
+    temp = tempfile.NamedTemporaryFile(
+        prefix="bc88ac-",
+        suffix=".pdf",
+        delete=False
+    )
+
+    try:
+        while True:
+            chunk = sys.stdin.buffer.read(1024 * 1024)
+
+            if not chunk:
+                break
+
+            temp.write(chunk)
+
+        temp.close()
+
+        return temp.name, True
+
+    except Exception:
+        temp.close()
+
+        try:
+            os.unlink(temp.name)
+        except Exception:
+            pass
+
+        raise
+
+
+def get_page_count(pdf):
+    """
+    Get number of PDF pages using pdfinfo.
+    """
+
+    result = subprocess.run(
+        [
+            "/usr/bin/pdfinfo",
+            pdf
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+
+    match = re.search(
+        r"^Pages:\s+(\d+)",
+        result.stdout,
+        re.MULTILINE
+    )
+
+    if not match:
+        raise RuntimeError("Could not determine PDF page count")
+
+    return int(match.group(1))
+
+
+def render_page(pdf, page, directory):
+    """
+    Render one PDF page to a 1-bit PBM image.
+
+    576 dots corresponds to approximately:
+
+        576 / 203 * 25.4 = 72.1 mm
+
+    This matches the practical printable width of an
+    80 mm thermal roll.
+
+    scale-to-x=576
+    scale-to-y=-1
+
+    preserves aspect ratio while fitting the page width.
+    """
+
+    output = os.path.join(
+        directory,
+        f"page-{page}"
+    )
+
+    command = [
+        "/usr/bin/pdftoppm",
+
+        # 203 DPI printer
+        "-r",
+        str(DPI),
+
+        # Monochrome
+        "-mono",
+
+        # Binary PBM
+        "-pbm",
+
+        # Use the PDF crop box where available
+        "-cropbox",
+
+        # Fit horizontally to printer width
+        "-scale-to-x",
+        str(PRINTER_WIDTH_DOTS),
+
+        # Preserve aspect ratio
+        "-scale-to-y",
+        "-1",
+
+        # Only this page
+        "-f",
+        str(page),
+
+        "-l",
+        str(page),
+
+        # Output prefix
+        pdf,
+        output
+    ]
+
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    if result.returncode != 0:
+        error = result.stderr.decode(
+            "utf-8",
+            errors="replace"
+        )
+
+        raise RuntimeError(
+            f"pdftoppm failed on page {page}: {error}"
+        )
+
+    filename = f"{output}-{page:01d}.pbm"
+
+    # Depending on Poppler's naming behavior, locate the file.
+    if os.path.exists(filename):
+        return filename
+
+    candidates = [
+        os.path.join(
+            directory,
+            name
+        )
+        for name in os.listdir(directory)
+        if name.endswith(".pbm")
+    ]
+
+    if not candidates:
+        raise RuntimeError(
+            f"pdftoppm produced no PBM for page {page}"
+        )
+
+    # The newest PBM is the one just created.
+    candidates.sort(
+        key=lambda x: os.path.getmtime(x),
+        reverse=True
+    )
+
+    return candidates[0]
+
+
+def read_pbm(filename):
+    """
+    Read binary PBM (P4) format.
+
+    Returns:
+
+        width
+        height
+        bitmap bytes
+
+    PBM stores:
+        1 = black
+        0 = white
+
+    ESC/POS raster expects:
+        1 = black
+        0 = white
+
+    so the byte data can be sent directly.
+    """
+
+    with open(filename, "rb") as f:
+        data = f.read()
+
+    if not data.startswith(b"P4"):
+        raise RuntimeError(
+            "Rendered image is not a binary PBM"
+        )
+
+    pos = 2
+
+    tokens = []
+
+    while len(tokens) < 2:
+        while pos < len(data) and data[pos] in b" \t\r\n":
+            pos += 1
+
+        if pos < len(data) and data[pos:pos + 1] == b"#":
+            while pos < len(data) and data[pos] not in b"\r\n":
+                pos += 1
+            continue
+
+        start = pos
+
+        while pos < len(data) and data[pos] not in b" \t\r\n":
+            pos += 1
+
+        tokens.append(data[start:pos])
+
+    width = int(tokens[0])
+    height = int(tokens[1])
+
+    while pos < len(data) and data[pos] in b" \t\r\n":
+        pos += 1
+
+    bitmap = data[pos:]
+
+    expected_bytes_per_row = (width + 7) // 8
+    expected_size = expected_bytes_per_row * height
+
+    if len(bitmap) < expected_size:
+        raise RuntimeError(
+            f"Invalid PBM size: expected "
+            f"{expected_size}, got {len(bitmap)}"
+        )
+
+    return width, height, bitmap[:expected_size]
+
+
+def send_raster(width, height, bitmap):
+    """
+    Convert PBM bitmap to ESC/POS raster format.
+
+    Command:
+
+        GS v 0 m xL xH yL yH
+
+    where:
+
+        m  = 0
+        x  = bytes per raster row
+        y  = raster rows
+    """
+
+    bytes_per_row = (width + 7) // 8
+
+    x_low = bytes_per_row & 0xff
+    x_high = (bytes_per_row >> 8) & 0xff
+
+    y_low = height & 0xff
+    y_high = (height >> 8) & 0xff
+
+    # Initialize printer.
+    sys.stdout.buffer.write(
+        ESC + b"@"
+    )
+
+    # Set left alignment.
+    sys.stdout.buffer.write(
+        ESC + b"a" + b"\x00"
+    )
+
+    # ESC/POS raster bit image.
+    sys.stdout.buffer.write(
+        GS +
+        b"v" +
+        b"0" +
+        b"\x00" +
+        bytes([
+            x_low,
+            x_high,
+            y_low,
+            y_high
+        ])
+    )
+
+    # Send image data.
+    #
+    # pdftoppm PBM already uses the same 1-bit,
+    # MSB-first representation required here.
+    sys.stdout.buffer.write(bitmap)
+
+    # Feed a little paper after the image.
+    sys.stdout.buffer.write(
+        b"\n\n\n"
+    )
+
+    sys.stdout.buffer.flush()
+
+
+def cut():
+    """
+    BC-88AC tested cutter command.
+
+    GS V 1 = partial cut.
+    """
+
+    sys.stdout.buffer.write(
+        GS + b"V" + b"\x01"
+    )
+
+    sys.stdout.buffer.flush()
+
+
+def main():
+
+    pdf = None
+    temporary_pdf = False
+
+    try:
+
+        pdf, temporary_pdf = get_input_file()
+
+        if not os.path.isfile(pdf):
+            raise RuntimeError(
+                f"Input file does not exist: {pdf}"
+            )
+
+        log(
+            f"Printing {os.path.basename(pdf)}"
+        )
+
+        pages = get_page_count(pdf)
+
+        log(
+            f"PDF contains {pages} page(s)"
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="bc88ac-render-"
+        ) as render_dir:
+
+            for page in range(1, pages + 1):
+
+                log(
+                    f"Rendering page {page}/{pages}"
+                )
+
+                pbm = render_page(
+                    pdf,
+                    page,
+                    render_dir
+                )
+
+                width, height, bitmap = read_pbm(
+                    pbm
+                )
+
+                log(
+                    f"Page {page}: "
+                    f"{width}x{height} pixels"
+                )
+
+                send_raster(
+                    width,
+                    height,
+                    bitmap
+                )
+
+                # Cut each PDF page.
+                cut()
+
+        log("Print completed")
+
+        return 0
+
+    except Exception as exc:
+
+        log(
+            f"ERROR: {exc}"
+        )
+
+        return 1
+
+    finally:
+
+        if temporary_pdf and pdf:
+
+            try:
+                os.unlink(pdf)
+            except Exception:
+                pass
+
+
+if __name__ == "__main__":
+    sys.exit(main())
